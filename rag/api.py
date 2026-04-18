@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import threading
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -16,6 +17,27 @@ from rag.utils.paths import extract_date
 
 if TYPE_CHECKING:
     from langchain_core.documents import Document
+
+
+_store_cache: dict[tuple[str, str], ChromaStore] = {}
+_store_cache_lock = threading.Lock()
+
+
+def _get_store(cfg: KMSConfig) -> ChromaStore:
+    """Return a process-wide ChromaStore, one per (persist_dir, collection).
+
+    Why: chromadb's SharedSystemClient caches a System per persist_dir and
+    pops it on client release. Instantiating a new Chroma client per search
+    race-conditions against that cache under LangGraph's ToolNode
+    ThreadPoolExecutor (KeyError on `_identifier_to_system[identifier]`).
+    """
+    key = (cfg.persist_dir, KNOWLEDGE_COLLECTION)
+    with _store_cache_lock:
+        store = _store_cache.get(key)
+        if store is None:
+            store = ChromaStore(KNOWLEDGE_COLLECTION, cfg)
+            _store_cache[key] = store
+        return store
 
 
 def _doc_to_hit(doc: "Document") -> Hit:
@@ -66,7 +88,7 @@ def search(
         date_to=date_to,
         folder_prefix=folder_prefix,
     )
-    store = ChromaStore(KNOWLEDGE_COLLECTION, cfg)
+    store = _get_store(cfg)
     retriever = VectorRetriever(store)
     docs = retriever.retrieve(query, k=k, where=where)
     return [_doc_to_hit(doc) for doc in docs]
