@@ -2,23 +2,28 @@
 
 import os
 from dataclasses import dataclass, field
+from pathlib import Path
 
 # Single collection for all knowledge chunks
 KNOWLEDGE_COLLECTION = "knowledge"
 
 
 def _default_persist_dir() -> str:
-    """Resolve the store directory without peeking at rag's own install path.
+    """Resolve the store directory.
 
-    Host projects embed rag as a tool and decide where its data lives. Order:
-      1. ``KMS_STORE_DIR`` env var (explicit host override).
-      2. ``./store`` relative to the caller's CWD (the host project root when
-         the host invokes rag from there).
+    The store is a rag-specific artifact (Chroma + JSON); it conceptually
+    belongs to rag, not the host. Default to ``store/`` at the rag repo root,
+    so running ingest from any host lands data in rag's own territory rather
+    than polluting the host project. Order:
+      1. ``KMS_STORE_DIR`` env var (explicit override, host may still pin
+         it wherever it wants).
+      2. ``<rag repo root>/store/``.
     """
     env = os.environ.get("KMS_STORE_DIR")
     if env:
         return env
-    return os.path.join(os.getcwd(), "store")
+    rag_repo_root = Path(__file__).resolve().parent.parent
+    return str(rag_repo_root / "store")
 
 
 @dataclass
