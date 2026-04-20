@@ -6,7 +6,7 @@ from typing import Any
 
 from openai import OpenAI, RateLimitError
 
-from rag.config import KMSConfig
+from rag.config import RAGConfig
 from rag.llm.base import BaseLLM
 
 
@@ -16,7 +16,7 @@ class OpenRouterLLM(BaseLLM):
     MAX_RETRIES = 10
     INITIAL_DELAY = 10.0
 
-    def __init__(self, model_name: str | None = None, config: KMSConfig | None = None):
+    def __init__(self, model_name: str | None = None, config: RAGConfig | None = None):
         api_key = os.getenv("OPENROUTER_API_KEY")
         if not api_key:
             raise RuntimeError("OPENROUTER_API_KEY is not set")
@@ -24,8 +24,8 @@ class OpenRouterLLM(BaseLLM):
             base_url="https://openrouter.ai/api/v1",
             api_key=api_key,
         )
-        config = config or KMSConfig()
-        self.model = model_name or config.llm_model
+        config = config or RAGConfig()
+        self.model = model_name or config.tagger_model
 
     def _call_with_retry(self, **kwargs):
         """Call the OpenAI API with exponential backoff on rate limits."""

@@ -2,16 +2,18 @@
 
 import ollama as _ollama
 
-from rag.config import KMSConfig
+from rag.config import RAGConfig
 from rag.llm.base import BaseLLM
 
 
 class OllamaLLM(BaseLLM):
     """LLM provider via local Ollama server."""
 
-    def __init__(self, model_name: str | None = None, config: KMSConfig | None = None):
-        config = config or KMSConfig()
-        self.model = model_name or config.filter_llm_model
+    def __init__(self, model_name: str | None = None, config: RAGConfig | None = None):
+        if not model_name:
+            raise ValueError("OllamaLLM requires model_name (no default in RAGConfig)")
+        _ = config
+        self.model = model_name
         self._client = _ollama.Client()
 
     def invoke(

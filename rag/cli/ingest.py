@@ -18,7 +18,7 @@ from pathlib import Path
 from langchain_core.documents import Document
 
 from rag.chunker.token import TokenChunker
-from rag.config import KMSConfig, KNOWLEDGE_COLLECTION
+from rag.config import RAGConfig, KNOWLEDGE_COLLECTION
 from rag.store.chroma_store import ChromaStore
 from rag.store.document_store import DocumentStore
 from rag.store.json_store import JSONStore
@@ -102,7 +102,7 @@ def _collect_folders(root: Path, extra_skip: set[str] | None = None) -> dict[str
     return folders
 
 
-def _tag_folders(folders: dict[str, list[Path]], root: Path, config: KMSConfig) -> dict[str, dict]:
+def _tag_folders(folders: dict[str, list[Path]], root: Path, config: RAGConfig) -> dict[str, dict]:
     """Use LLM to tag and summarize each folder.
 
     Returns dict mapping folder_rel -> {"tags": [...], "summary": "..."}.
@@ -129,7 +129,7 @@ def _tag_folders(folders: dict[str, list[Path]], root: Path, config: KMSConfig) 
 
 def ingest_repo(
     repo_root: str | None = None,
-    config: KMSConfig | None = None,
+    config: RAGConfig | None = None,
     extra_skip: set[str] | None = None,
 ) -> tuple[int, int]:
     """Ingest all text files into a single 'knowledge' collection with rich metadata.
@@ -149,7 +149,7 @@ def ingest_repo(
     Returns:
         Tuple of (files_ingested, total_chunks).
     """
-    config = config or KMSConfig()
+    config = config or RAGConfig()
     root = Path(repo_root).resolve() if repo_root else Path.cwd()
 
     if not root.is_dir():
@@ -215,7 +215,7 @@ def ingest_repo(
 def ingest_single(
     file_path: str,
     pid: str | None = None,
-    config: KMSConfig | None = None,
+    config: RAGConfig | None = None,
 ) -> tuple[str, int]:
     """Ingest a single file into the knowledge collection (no LLM tagging).
 
@@ -227,7 +227,7 @@ def ingest_single(
     Returns:
         Tuple of (pid, chunk_count).
     """
-    config = config or KMSConfig()
+    config = config or RAGConfig()
     path = Path(file_path)
 
     if not path.exists():

@@ -1,7 +1,7 @@
 """Framework-neutral RAG library."""
 
 from rag.api import explore, get_context, list_chunks, search
-from rag.config import KMSConfig
+from rag.config import RAGConfig
 from rag.types import ContextChunk, ContextWindow, FolderSummary, Hit, Inventory
 
 __all__ = [
@@ -10,7 +10,7 @@ __all__ = [
     "FolderSummary",
     "Hit",
     "Inventory",
-    "KMSConfig",
+    "RAGConfig",
     "explore",
     "get_context",
     "list_chunks",

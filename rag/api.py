@@ -7,7 +7,7 @@ import threading
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from rag.config import KMSConfig, KNOWLEDGE_COLLECTION
+from rag.config import RAGConfig, KNOWLEDGE_COLLECTION
 from rag.filters import build_where
 from rag.retriever.vector import VectorRetriever
 from rag.store.chroma_store import ChromaStore
@@ -23,7 +23,7 @@ _store_cache: dict[tuple[str, str], ChromaStore] = {}
 _store_cache_lock = threading.Lock()
 
 
-def _get_store(cfg: KMSConfig) -> ChromaStore:
+def _get_store(cfg: RAGConfig) -> ChromaStore:
     """Return a process-wide ChromaStore, one per (persist_dir, collection).
 
     Why: chromadb's SharedSystemClient caches a System per persist_dir and
@@ -77,10 +77,10 @@ def search(
     file_type: str | None = None,
     date_from: str | None = None,
     date_to: str | None = None,
-    config: KMSConfig | None = None,
+    config: RAGConfig | None = None,
 ) -> list[Hit]:
     """Semantic search with optional metadata filters."""
-    cfg = config or KMSConfig()
+    cfg = config or RAGConfig()
     where = build_where(
         category=category,
         file_type=file_type,
@@ -97,10 +97,10 @@ def search(
 def explore(
     *,
     category: str | None = None,
-    config: KMSConfig | None = None,
+    config: RAGConfig | None = None,
 ) -> Inventory:
     """Return a structured inventory of what's in the knowledge base."""
-    cfg = config or KMSConfig()
+    cfg = config or RAGConfig()
     meta_path = Path(cfg.folder_meta_path())
     if not meta_path.exists():
         return Inventory(categories={}, tags=[], date_range=None, folders=[])
@@ -150,14 +150,14 @@ def list_chunks(
     *,
     folder_prefix: str | None = None,
     pid: str | None = None,
-    config: KMSConfig | None = None,
+    config: RAGConfig | None = None,
 ) -> list[Hit]:
     """Enumerate every stored chunk, optionally filtered by folder/pid.
 
     Exposed so consumers (e.g. evaluation harnesses) can iterate the full
     corpus without reaching into rag's internal stores.
     """
-    cfg = config or KMSConfig()
+    cfg = config or RAGConfig()
     json_store = JSONStore(cfg.raw_json_path())
     docs = json_store.get(pid=pid)
     hits = [_doc_to_hit(doc) for doc in docs]
@@ -171,10 +171,10 @@ def get_context(
     chunk_id: int,
     *,
     window: int = 1,
-    config: KMSConfig | None = None,
+    config: RAGConfig | None = None,
 ) -> ContextWindow | None:
     """Return the target chunk plus neighbours from the same document."""
-    cfg = config or KMSConfig()
+    cfg = config or RAGConfig()
     json_store = JSONStore(cfg.raw_json_path())
     bounded_window = min(max(window, 0), 3)
     all_docs = json_store.get(pid=pid)

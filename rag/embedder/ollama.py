@@ -2,14 +2,14 @@
 
 from langchain_ollama import OllamaEmbeddings
 
-from rag.config import KMSConfig
+from rag.config import RAGConfig
 from rag.embedder.base import BaseEmbedder
 
 
 class OllamaEmbedder(BaseEmbedder):
     """Embed text using a local Ollama model (e.g., bge-m3)."""
 
-    def __init__(self, config: KMSConfig):
+    def __init__(self, config: RAGConfig):
         self.config = config
         self._embeddings = OllamaEmbeddings(model=config.embed_model)
 

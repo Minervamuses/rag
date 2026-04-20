@@ -2,7 +2,7 @@
 
 import json
 
-from rag.config import KMSConfig
+from rag.config import RAGConfig
 from rag.llm.openrouter import OpenRouterLLM
 from rag.tagger.base import BaseTagger, FolderMeta
 
@@ -32,8 +32,8 @@ JSON:"""
 class LLMTagger(BaseTagger):
     """Assign tags and generate summaries for folders using an LLM."""
 
-    def __init__(self, config: KMSConfig | None = None):
-        self.config = config or KMSConfig()
+    def __init__(self, config: RAGConfig | None = None):
+        self.config = config or RAGConfig()
         self.llm = OpenRouterLLM(config=self.config)
 
     def tag(self, folder_path: str, file_names: list[str], file_previews: dict[str, str]) -> FolderMeta:

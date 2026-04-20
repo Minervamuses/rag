@@ -2,7 +2,7 @@
 
 import argparse
 
-from rag.config import KMSConfig, KNOWLEDGE_COLLECTION
+from rag.config import RAGConfig, KNOWLEDGE_COLLECTION
 from rag.retriever.vector import VectorRetriever
 from rag.store.chroma_store import ChromaStore
 
@@ -10,7 +10,7 @@ from rag.store.chroma_store import ChromaStore
 def query_once(
     question: str,
     k: int = 5,
-    config: KMSConfig | None = None,
+    config: RAGConfig | None = None,
 ) -> list[dict]:
     """Run a single query and return results.
 
@@ -22,7 +22,7 @@ def query_once(
     Returns:
         List of dicts with pid, chunk_id, score, and text preview.
     """
-    config = config or KMSConfig()
+    config = config or RAGConfig()
     chroma = ChromaStore(KNOWLEDGE_COLLECTION, config)
     retriever = VectorRetriever(chroma)
     docs = retriever.retrieve(question, k)
@@ -37,7 +37,7 @@ def query_once(
     return results
 
 
-def interactive(config: KMSConfig, k: int = 5) -> None:
+def interactive(config: RAGConfig, k: int = 5) -> None:
     """Run an interactive query loop."""
     chroma = ChromaStore(KNOWLEDGE_COLLECTION, config)
     retriever = VectorRetriever(chroma)
@@ -75,7 +75,7 @@ def main():
     parser.add_argument("-k", type=int, default=5, help="Number of results (default: 5)")
     args = parser.parse_args()
 
-    config = KMSConfig()
+    config = RAGConfig()
 
     if args.question:
         results = query_once(args.question, k=args.k, config=config)

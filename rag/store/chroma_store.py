@@ -4,7 +4,7 @@ from langchain_core.documents import Document
 from langchain_chroma import Chroma
 from langchain_ollama import OllamaEmbeddings
 
-from rag.config import KMSConfig
+from rag.config import RAGConfig
 from rag.store.base import BaseStore
 
 
@@ -14,7 +14,7 @@ class ChromaStore(BaseStore):
     def __init__(
         self,
         collection_name: str,
-        config: KMSConfig,
+        config: RAGConfig,
         use_embeddings: bool = True,
     ):
         self.config = config

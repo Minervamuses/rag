@@ -1,10 +1,13 @@
-"""Central configuration for the RAG workspace."""
+"""Central configuration for the RAG library.
+
+Only settings rag itself needs belong here. Hosts (e.g. the ``app`` agent
+repo) layer their own config on top via subclassing.
+"""
 
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
-# Single collection for all knowledge chunks
 KNOWLEDGE_COLLECTION = "knowledge"
 
 
@@ -27,8 +30,8 @@ def _default_persist_dir() -> str:
 
 
 @dataclass
-class KMSConfig:
-    """Central configuration for the RAG workspace."""
+class RAGConfig:
+    """Configuration for the rag library (storage, chunking, embedding, tagger)."""
 
     # Storage
     persist_dir: str = field(default_factory=_default_persist_dir)
@@ -41,25 +44,11 @@ class KMSConfig:
     # Embedding
     embed_model: str = "bge-m3"
 
-    # LLM
-    llm_model: str = "z-ai/glm-5"
-
-    # Evaluation LLMs
-    gen_llm_model: str = "google/gemini-3.1-pro-preview"
-    judge_llm_model: str = "openai/gpt-5.2"
-    filter_llm_model: str = "llama3.1:8b"
-
     # Retrieval
     default_k: int = 10
 
-    # Agent context controls
-    agent_max_messages: int = 20
-    agent_max_tool_interactions: int = 4
-
-    # Agent turn compaction
-    agent_turns_per_compaction: int = 10
-    agent_compaction_model: str | None = None
-    agent_compaction_max_tokens: int = 800
+    # LLM used by rag's own tagger
+    tagger_model: str = "z-ai/glm-5"
 
     # Collection names
     raw_collection: str = "raw"

@@ -4,7 +4,7 @@ import tiktoken
 from langchain_core.documents import Document
 
 from rag.chunker.base import BaseChunker
-from rag.config import KMSConfig
+from rag.config import RAGConfig
 
 
 class TokenChunker(BaseChunker):
@@ -15,7 +15,7 @@ class TokenChunker(BaseChunker):
     any text (code, markdown, meeting notes, papers).
     """
 
-    def __init__(self, config: KMSConfig):
+    def __init__(self, config: RAGConfig):
         self.config = config
         self.chunk_size = config.chunk_size
         self.chunk_overlap = config.chunk_overlap
