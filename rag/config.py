@@ -56,6 +56,11 @@ class KMSConfig:
     agent_max_messages: int = 20
     agent_max_tool_interactions: int = 4
 
+    # Agent turn compaction
+    agent_turns_per_compaction: int = 10
+    agent_compaction_model: str | None = None
+    agent_compaction_max_tokens: int = 800
+
     # Collection names
     raw_collection: str = "raw"
 
