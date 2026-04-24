@@ -79,14 +79,35 @@ def search(
     date_to: str | None = None,
     config: RAGConfig | None = None,
 ) -> list[Hit]:
-    """Semantic search with optional metadata filters.
+    """Return the top semantic matches from the knowledge collection.
 
-    `folder_prefix` is a strict ``str.startswith`` match on the chunk's
-    folder field, matching `list_chunks` semantics. Because Chroma cannot
-    express prefix matching in a metadata where-clause, this filter is
-    applied in Python after vector retrieval; extra candidates are fetched
-    up front so the returned list can still reach `k` entries in the common
-    case.
+    `query` is embedded with the configured Ollama embedding model and
+    matched against the Chroma `knowledge` collection. `k` limits the final
+    number of returned hits. `category`, `file_type`, `date_from`, and
+    `date_to` are Chroma metadata filters; dates are `YYYY-MM-DD` strings
+    compared as `YYYYMMDD` integers, and chunks with `date == 0` represent
+    files that did not live under a dated folder on disk. `folder_prefix` is
+    a strict `str.startswith` match on the stored folder path after trailing
+    slashes are stripped; Chroma cannot express that prefix query, so rag
+    fetches extra vector candidates and applies the prefix filter in Python.
+
+    Returns:
+        A list of `rag.types.Hit` objects. Each hit contains the document id,
+        chunk id, chunk text, source metadata, tags, and raw Chroma metadata.
+
+    Example:
+        ```python
+        from rag import search
+
+        hits = search(
+            "How is the embedding model configured?",
+            k=3,
+            folder_prefix="rag/embedder",
+            file_type=".py",
+        )
+        for hit in hits:
+            print(hit.pid, hit.chunk_id, hit.text[:120])
+        ```
     """
     cfg = config or RAGConfig()
     where = build_where(
@@ -111,7 +132,30 @@ def explore(
     category: str | None = None,
     config: RAGConfig | None = None,
 ) -> Inventory:
-    """Return a structured inventory of what's in the knowledge base."""
+    """Return folder-level inventory metadata for the knowledge base.
+
+    Inventory is read from `folder_meta.json`, which repo ingest creates next
+    to the raw JSON backup. If `category` is supplied, only matching folder
+    summaries are included in `Inventory.folders`; aggregate `categories`,
+    `tags`, and `date_range` still describe the whole metadata file. Folder
+    dates are extracted from folder paths as `YYYYMMDD` integers; folders
+    without a date do not contribute to `date_range`.
+
+    Returns:
+        A `rag.types.Inventory` containing category counts, all tags, an
+        optional `(min_date, max_date)` tuple, and folder summaries. If no
+        metadata file exists yet, the inventory is empty.
+
+    Example:
+        ```python
+        from rag import explore
+
+        inventory = explore(category="docs")
+        print(inventory.categories)
+        for folder in inventory.folders:
+            print(folder.folder, folder.summary)
+        ```
+    """
     cfg = config or RAGConfig()
     meta_path = Path(cfg.folder_meta_path())
     if not meta_path.exists():
@@ -168,14 +212,35 @@ def list_chunks(
     date_to: str | None = None,
     config: RAGConfig | None = None,
 ) -> list[Hit]:
-    """Enumerate every stored chunk, optionally filtered.
+    """Enumerate stored chunks from the raw JSON backup.
 
-    Filter arguments mirror `search` so agents and eval harnesses can move
-    between ranked and unranked retrieval without relearning the surface.
-    All filters are applied in Python over the JSON backup (no embedding
-    model or Chroma round-trip). `folder_prefix` is a strict
-    ``str.startswith`` match; `date_from` / `date_to` take ``YYYY-MM-DD``
-    strings and drop chunks whose `date == 0` (no YYYYMMDD folder on disk).
+    Filters mirror `search` so agents and eval harnesses can move between
+    ranked and unranked retrieval without relearning the surface. `pid`
+    restricts the scan to one document id. `folder_prefix` is a strict
+    `str.startswith` match on the stored folder path after trailing slashes
+    are stripped. `category` and `file_type` are exact metadata matches.
+    `date_from` and `date_to` are `YYYY-MM-DD` strings compared as
+    `YYYYMMDD` integers; any date filter drops chunks with `date == 0`, which
+    means the source file did not live under a dated folder on disk. All
+    filters are applied in Python, with no embedding model or Chroma
+    round-trip.
+
+    Returns:
+        A list of `rag.types.Hit` objects in raw JSON backup order. `score`
+        is currently `None` because this path is unranked.
+
+    Example:
+        ```python
+        from rag import list_chunks
+
+        chunks = list_chunks(
+            folder_prefix="docs",
+            file_type=".md",
+            date_from="2026-01-01",
+        )
+        for chunk in chunks:
+            print(chunk.file_path, chunk.chunk_id)
+        ```
     """
     cfg = config or RAGConfig()
     json_store = JSONStore(cfg.raw_json_path())
@@ -204,7 +269,32 @@ def get_context(
     window: int = 1,
     config: RAGConfig | None = None,
 ) -> ContextWindow | None:
-    """Return the target chunk plus neighbours from the same document."""
+    """Return a target chunk with neighboring chunks from the same document.
+
+    `pid` selects the document and `chunk_id` selects the target chunk within
+    that document. `window` is clamped to the inclusive range `[0, 3]`; `0`
+    returns only the target chunk, while larger values include that many
+    chunks before and after the target when available. If the document id is
+    absent from the raw JSON backup, `None` is returned. If the document
+    exists but `chunk_id` is not present, `ValueError` lists the available
+    chunk ids.
+
+    Returns:
+        A `rag.types.ContextWindow` containing the target chunk, neighboring
+        `ContextChunk` objects, and the total chunk count for the document, or
+        `None` when `pid` does not exist.
+
+    Example:
+        ```python
+        from rag import get_context
+
+        window = get_context("readme", 2, window=2)
+        if window is not None:
+            for chunk in window.chunks:
+                marker = ">" if chunk.is_target else " "
+                print(marker, chunk.chunk_id, chunk.text[:120])
+        ```
+    """
     cfg = config or RAGConfig()
     json_store = JSONStore(cfg.raw_json_path())
     bounded_window = min(max(window, 0), 3)
