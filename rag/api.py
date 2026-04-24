@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from rag.config import RAGConfig, KNOWLEDGE_COLLECTION
-from rag.filters import build_where
+from rag.filters import build_where, date_to_int
 from rag.retriever.vector import VectorRetriever
 from rag.store.chroma_store import ChromaStore
 from rag.store.json_store import JSONStore
@@ -162,19 +162,38 @@ def list_chunks(
     *,
     folder_prefix: str | None = None,
     pid: str | None = None,
+    category: str | None = None,
+    file_type: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
     config: RAGConfig | None = None,
 ) -> list[Hit]:
-    """Enumerate every stored chunk, optionally filtered by folder/pid.
+    """Enumerate every stored chunk, optionally filtered.
 
-    Exposed so consumers (e.g. evaluation harnesses) can iterate the full
-    corpus without reaching into rag's internal stores.
+    Filter arguments mirror `search` so agents and eval harnesses can move
+    between ranked and unranked retrieval without relearning the surface.
+    All filters are applied in Python over the JSON backup (no embedding
+    model or Chroma round-trip). `folder_prefix` is a strict
+    ``str.startswith`` match; `date_from` / `date_to` take ``YYYY-MM-DD``
+    strings and drop chunks whose `date == 0` (no YYYYMMDD folder on disk).
     """
     cfg = config or RAGConfig()
     json_store = JSONStore(cfg.raw_json_path())
     docs = json_store.get(pid=pid)
     hits = [_doc_to_hit(doc) for doc in docs]
     if folder_prefix is not None:
-        hits = [h for h in hits if (h.folder or "").startswith(folder_prefix)]
+        prefix = folder_prefix.rstrip("/")
+        hits = [h for h in hits if (h.folder or "").startswith(prefix)]
+    if category is not None:
+        hits = [h for h in hits if h.category == category]
+    if file_type is not None:
+        hits = [h for h in hits if h.file_type == file_type]
+    if date_from is not None:
+        lo = date_to_int(date_from)
+        hits = [h for h in hits if h.date and h.date >= lo]
+    if date_to is not None:
+        hi = date_to_int(date_to)
+        hits = [h for h in hits if h.date and h.date <= hi]
     return hits
 
 
