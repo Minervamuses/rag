@@ -2,9 +2,9 @@
 
 from langchain_core.documents import Document
 from langchain_chroma import Chroma
-from langchain_ollama import OllamaEmbeddings
 
 from rag.config import RAGConfig
+from rag.embedder.ollama import OllamaEmbedder
 from rag.store.base import BaseStore
 
 
@@ -19,13 +19,10 @@ class ChromaStore(BaseStore):
     ):
         self.config = config
         self.collection_name = collection_name
-        if use_embeddings:
-            embeddings = OllamaEmbeddings(model=config.embed_model)
-        else:
-            embeddings = None
+        embedder = OllamaEmbedder(config) if use_embeddings else None
         self._store = Chroma(
             collection_name=collection_name,
-            embedding_function=embeddings,
+            embedding_function=embedder,
             persist_directory=config.persist_dir,
         )
 
