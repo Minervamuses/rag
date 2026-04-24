@@ -11,13 +11,14 @@ def build_where(
     file_type: str | None = None,
     date_from: str | None = None,
     date_to: str | None = None,
-    folder_prefix: str | None = None,
 ) -> dict | None:
-    """Build a ChromaDB where clause from filter arguments."""
+    """Build a ChromaDB where clause from filter arguments.
+
+    Chroma's metadata filter operators cannot express prefix matching, so
+    `folder_prefix` is intentionally not accepted here — callers apply it
+    in Python after retrieval.
+    """
     conditions: list[dict] = []
-    if folder_prefix:
-        prefix = folder_prefix.rstrip("/")
-        conditions.append({"folder": {"$contains": prefix}})
     if category:
         conditions.append({"category": {"$eq": category}})
     if file_type:

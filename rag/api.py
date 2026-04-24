@@ -79,19 +79,31 @@ def search(
     date_to: str | None = None,
     config: RAGConfig | None = None,
 ) -> list[Hit]:
-    """Semantic search with optional metadata filters."""
+    """Semantic search with optional metadata filters.
+
+    `folder_prefix` is a strict ``str.startswith`` match on the chunk's
+    folder field, matching `list_chunks` semantics. Because Chroma cannot
+    express prefix matching in a metadata where-clause, this filter is
+    applied in Python after vector retrieval; extra candidates are fetched
+    up front so the returned list can still reach `k` entries in the common
+    case.
+    """
     cfg = config or RAGConfig()
     where = build_where(
         category=category,
         file_type=file_type,
         date_from=date_from,
         date_to=date_to,
-        folder_prefix=folder_prefix,
     )
     store = _get_store(cfg)
     retriever = VectorRetriever(store)
-    docs = retriever.retrieve(query, k=k, where=where)
-    return [_doc_to_hit(doc) for doc in docs]
+    retrieval_k = k * 3 if folder_prefix else k
+    docs = retriever.retrieve(query, k=retrieval_k, where=where)
+    hits = [_doc_to_hit(doc) for doc in docs]
+    if folder_prefix is not None:
+        prefix = folder_prefix.rstrip("/")
+        hits = [h for h in hits if (h.folder or "").startswith(prefix)]
+    return hits[:k]
 
 
 def explore(
