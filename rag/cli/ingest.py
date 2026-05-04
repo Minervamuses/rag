@@ -159,11 +159,20 @@ def ingest_repo(
     folders = _collect_folders(root, extra_skip=extra_skip)
     folder_meta = _tag_folders(folders, root, config)
 
-    # Save folder metadata
+    # Save folder metadata (merge with existing so partial ingest doesn't lose
+    # tags from folders outside this run's scope).
     meta_path = Path(config.folder_meta_path())
     meta_path.parent.mkdir(parents=True, exist_ok=True)
+    existing_meta: dict[str, dict] = {}
+    if meta_path.exists():
+        try:
+            with meta_path.open("r", encoding="utf-8") as f:
+                existing_meta = json.load(f)
+        except (json.JSONDecodeError, OSError):
+            existing_meta = {}
+    existing_meta.update(folder_meta)
     with meta_path.open("w", encoding="utf-8") as f:
-        json.dump(folder_meta, f, ensure_ascii=False, indent=2)
+        json.dump(existing_meta, f, ensure_ascii=False, indent=2)
     print(f"\nFolder metadata saved to {meta_path}")
 
     # Phase 2: Chunk + write to single collection
@@ -203,6 +212,11 @@ def ingest_repo(
                 doc.metadata["tags"] = json.dumps(tags)
 
             if docs:
+                # Upsert: delete prior chunks for this pid before re-adding so
+                # repeated ingest of the same path doesn't accumulate stale
+                # chunks. pid == rel_path is stable across runs.
+                chroma.delete(rel_path)
+                json_store.delete(rel_path)
                 chroma.add(docs)
                 json_store.add(docs)
                 files_ingested += 1
@@ -250,6 +264,7 @@ def ingest_single(
 
     docs = chunker.chunk(text, pid_val)
     if docs:
+        store.delete(pid_val)
         store.add(docs)
     return pid_val, len(docs)
 
