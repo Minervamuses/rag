@@ -83,15 +83,32 @@ def _get_file_preview(path: Path) -> str:
         return ""
 
 
-def _collect_folders(root: Path, extra_skip: set[str] | None = None) -> dict[str, list[Path]]:
-    """Group ingestable files by their parent directory."""
-    skip = SKIP_DIRS | (extra_skip or set())
+def _collect_folders(
+    root: Path,
+    extra_skip: set[str] | None = None,
+    skip_rel_paths: set[str] | None = None,
+) -> dict[str, list[Path]]:
+    """Group ingestable files by their parent directory.
+
+    Args:
+        root: Directory to scan.
+        extra_skip: Names matched against any path component (so a name like
+            ``"app"`` skips every directory called ``app`` anywhere in the tree).
+        skip_rel_paths: Rel paths anchored at ``root`` (POSIX-style); a file is
+            skipped iff its rel path equals or sits under one of these. Use this
+            when a name-based skip would over-match (e.g. excluding only the
+            top-level ``app/`` while keeping ``web/backend/app/``).
+    """
+    skip_names = SKIP_DIRS | (extra_skip or set())
+    skip_path_parts = [Path(p).parts for p in (skip_rel_paths or set())]
     folders: dict[str, list[Path]] = {}
     for file_path in sorted(root.rglob("*")):
         if not file_path.is_file():
             continue
         parts = file_path.relative_to(root).parts
-        if any(part in skip for part in parts):
+        if any(part in skip_names for part in parts):
+            continue
+        if any(parts[: len(sp)] == sp for sp in skip_path_parts):
             continue
         if not _should_ingest(file_path):
             continue
@@ -131,6 +148,7 @@ def ingest_repo(
     repo_root: str | None = None,
     config: RAGConfig | None = None,
     extra_skip: set[str] | None = None,
+    skip_rel_paths: set[str] | None = None,
 ) -> tuple[int, int]:
     """Ingest all text files into a single 'knowledge' collection with rich metadata.
 
@@ -143,8 +161,13 @@ def ingest_repo(
         repo_root: Path to the directory to ingest. Defaults to the current
             working directory — the host project decides what to index.
         config: Pipeline configuration.
-        extra_skip: Additional directory names to skip (e.g. the rag clone dir
-            when ingesting a host project that embeds rag as a subdirectory).
+        extra_skip: Additional directory names to skip (matched against any
+            path component, e.g. the rag clone dir when ingesting a host
+            project that embeds rag as a subdirectory).
+        skip_rel_paths: Rel paths anchored at ``repo_root`` (POSIX-style) to
+            skip exactly. Use this when a name-based skip would over-match —
+            e.g. excluding only the top-level ``app/`` of a monorepo without
+            also skipping a sibling like ``web/backend/app/``.
 
     Returns:
         Tuple of (files_ingested, total_chunks).
@@ -156,7 +179,7 @@ def ingest_repo(
         raise FileNotFoundError(f"Repo root not found: {root}")
 
     # Phase 1: Collect and tag folders
-    folders = _collect_folders(root, extra_skip=extra_skip)
+    folders = _collect_folders(root, extra_skip=extra_skip, skip_rel_paths=skip_rel_paths)
     folder_meta = _tag_folders(folders, root, config)
 
     # Save folder metadata (merge with existing so partial ingest doesn't lose
